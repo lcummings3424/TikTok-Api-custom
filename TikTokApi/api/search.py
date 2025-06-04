@@ -64,7 +64,7 @@ class Search:
             params = {
                 "keyword": search_term,
                 "cursor": cursor,
-                "count": 12,
+                "count": count,
                 "from_page": "search",
                 "web_search_code": (
                     """{"tiktok":{"client_params_x":{"search_engine":{"ies_mt_user_live_video_card_use_libra":1,"mt_search_general_user_live_card":1}},"search_server":{}}}"""
