@@ -5,10 +5,8 @@ from typing import Any
 import random
 import time
 import json
-import os
-import tempfile
 
-from patchright.async_api import async_playwright, TimeoutError
+from playwright.async_api import async_playwright, TimeoutError
 from urllib.parse import urlencode, quote, urlparse
 from .stealth import stealth_async
 from .helpers import random_choice
@@ -29,8 +27,8 @@ from .exceptions import (
 
 
 @dataclasses.dataclass
-class TikTokPatchrightSession:
-    """A TikTok session using Patchright"""
+class TikTokPlaywrightSession:
+    """A TikTok session using Playwright"""
 
     context: Any
     page: Any
@@ -94,8 +92,8 @@ class TikTokApi:
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
 
-    async def __set_session_params(self, session: TikTokPatchrightSession):
-        """Set the session params for a TikTokPatchrightSession"""
+    async def __set_session_params(self, session: TikTokPlaywrightSession):
+        """Set the session params for a TikTokPlaywrightSession"""
         user_agent = await session.page.evaluate("() => navigator.userAgent")
         language = await session.page.evaluate(
             "() => navigator.language || navigator.userLanguage"
@@ -151,12 +149,12 @@ class TikTokApi:
         timeout: int = 30000,
     ):
         try:
-            """Create a TikTokPatchrightSession"""
+            """Create a TikTokPlaywrightSession"""
             if ms_token is not None:
                 if cookies is None:
                     cookies = {}
                 cookies["msToken"] = ms_token
-
+    
             context = await self.browser.new_context(proxy=proxy, **context_options)
             if cookies is not None:
                 formatted_cookies = [
@@ -167,43 +165,39 @@ class TikTokApi:
                 await context.add_cookies(formatted_cookies)
             page = await context.new_page()
             await stealth_async(page)
-
+    
             # Get the request headers to the url
             request_headers = None
-
+    
             def handle_request(request):
                 nonlocal request_headers
                 request_headers = request.headers
-
+    
             page.once("request", handle_request)
-
+    
             if suppress_resource_load_types is not None:
                 await page.route(
                     "**/*",
-                    lambda route, request: (
-                        route.abort()
-                        if request.resource_type in suppress_resource_load_types
-                        else route.continue_()
-                    ),
+                    lambda route, request: route.abort()
+                    if request.resource_type in suppress_resource_load_types
+                    else route.continue_(),
                 )
-
+            
             # Set the navigation timeout
             page.set_default_navigation_timeout(timeout)
-
+    
             await page.goto(url)
-            await page.goto(
-                url
-            )  # hack: tiktok blocks first request not sure why, likely bot detection
-
+            await page.goto(url) # hack: tiktok blocks first request not sure why, likely bot detection
+            
             # by doing this, we are simulate scroll event using mouse to `avoid` bot detection
             x, y = random.randint(0, 50), random.randint(0, 50)
             a, b = random.randint(1, 50), random.randint(100, 200)
-
+    
             await page.mouse.move(x, y)
             await page.wait_for_load_state("networkidle")
             await page.mouse.move(a, b)
-
-            session = TikTokPatchrightSession(
+    
+            session = TikTokPlaywrightSession(
                 context,
                 page,
                 ms_token=ms_token,
@@ -213,9 +207,7 @@ class TikTokApi:
             )
 
             if ms_token is None:
-                await asyncio.sleep(
-                    sleep_after
-                )  # TODO: Find a better way to wait for msToken
+                await asyncio.sleep(sleep_after)  # TODO: Find a better way to wait for msToken
                 cookies = await self.get_session_cookies(session)
                 ms_token = cookies.get("msToken")
                 session.ms_token = ms_token
@@ -229,9 +221,9 @@ class TikTokApi:
             # clean up
             self.logger.error(f"Failed to create session: {e}")
             # Cleanup resources if they were partially created
-            if "page" in locals():
+            if 'page' in locals():
                 await page.close()
-            if "context" in locals():
+            if 'context' in locals():
                 await context.close()
             raise  # Re-raise the exception after cleanup
 
@@ -259,62 +251,50 @@ class TikTokApi:
         Args:
             num_sessions (int): The amount of sessions you want to create.
             headless (bool): Whether or not you want the browser to be headless.
-            ms_tokens (list[str]): A list of msTokens to use for the sessions.
-            proxies (list): A list of proxies to use for the sessions.
-            sleep_after (int): The amount of time to sleep after creating a session.
-            starting_url (str): The url to start the sessions on.
-            context_options (dict): Options to pass to the browser context.
+            ms_tokens (list[str]): A list of msTokens to use for the sessions, you can get these from your cookies after visiting TikTok.
+                                   If you don't provide any, the sessions will try to get them themselves, but this is not guaranteed to work.
+            proxies (list): A list of proxies to use for the sessions
+            sleep_after (int): The amount of time to sleep after creating a session, this is to allow the msToken to be generated.
+            starting_url (str): The url to start the sessions on, this is usually https://www.tiktok.com.
+            context_options (dict): Options to pass to the playwright context.
             override_browser_args (list[dict]): A list of dictionaries containing arguments to pass to the browser.
-            cookies (list[dict]): A list of cookies to use for the sessions.
-            suppress_resource_load_types (list[str]): Types of resources to suppress from loading.
-            browser (str): Only chromium is supported with Patchright.
-            executable_path (str): Path to the browser executable.
-            timeout (int): The timeout in milliseconds for page navigation.
+            cookies (list[dict]): A list of cookies to use for the sessions, you can get these from your cookies after visiting TikTok.
+            suppress_resource_load_types (list[str]): Types of resources to suppress playwright from loading, excluding more types will make playwright faster.. Types: document, stylesheet, image, media, font, script, textrack, xhr, fetch, eventsource, websocket, manifest, other.
+            browser (str): firefox, chromium, or webkit; default is chromium
+            executable_path (str): Path to the browser executable
+            timeout (int): The timeout in milliseconds for page navigation
+
+        Example Usage:
+            .. code-block:: python
+
+                from TikTokApi import TikTokApi
+                with TikTokApi() as api:
+                    await api.create_sessions(num_sessions=5, ms_tokens=['msToken1', 'msToken2'])
         """
         self.playwright = await async_playwright().start()
-
-        # Create a temporary directory for user data if not provided
-        if not context_options.get("user_data_dir"):
-            context_options["user_data_dir"] = tempfile.mkdtemp()
-
-        # Set default context options for Patchright
-        context_options.update(
-            {
-                "channel": "chrome",  # Use Chrome instead of Chromium
-                "no_viewport": True,
-                "headless": False,  # Patchright recommends non-headless
-                "ignore_https_errors": True,
-                "bypass_csp": True,
-                "java_script_enabled": True,
-                "has_touch": True,
-                "is_mobile": False,
-                "locale": "en-US",
-                "timezone_id": "America/New_York",
-                "geolocation": {"latitude": 40.7128, "longitude": -74.0060},  # New York
-                "permissions": ["geolocation"],
-                "color_scheme": "light",
-                "reduced_motion": "no-preference",
-                "forced_colors": "none",
-                "accept_downloads": True,
-            }
-        )
-
-        if browser != "chromium":
-            raise ValueError(
-                "Only Chromium-based browsers are supported with Patchright"
+        if browser == "chromium":
+            if headless and override_browser_args is None:
+                override_browser_args = ["--headless=new"]
+                headless = False  # managed by the arg
+            self.browser = await self.playwright.chromium.launch(
+                headless=headless, args=override_browser_args, proxy=random_choice(proxies), executable_path=executable_path
             )
-
-        self.browser = await self.playwright.chromium.launch_persistent_context(
-            **context_options, proxy=random_choice(proxies)
-        )
+        elif browser == "firefox":
+            self.browser = await self.playwright.firefox.launch(
+                headless=headless, args=override_browser_args, proxy=random_choice(proxies), executable_path=executable_path
+            )
+        elif browser == "webkit":
+            self.browser = await self.playwright.webkit.launch(
+                headless=headless, args=override_browser_args, proxy=random_choice(proxies), executable_path=executable_path
+            )
+        else:
+            raise ValueError("Invalid browser argument passed")
 
         await asyncio.gather(
             *(
                 self.__create_session(
                     proxy=random_choice(proxies),
-                    ms_token=(
-                        random_choice(ms_tokens) if ms_tokens is not None else None
-                    ),
+                    ms_token=random_choice(ms_tokens),
                     url=starting_url,
                     context_options=context_options,
                     sleep_after=sleep_after,
@@ -362,7 +342,7 @@ class TikTokApi:
 
         Returns:
             int: The index of the session.
-            TikTokPatchrightSession: The session.
+            TikTokPlaywrightSession: The session.
         """
         if len(self.sessions) == 0:
             raise Exception("No sessions created, please create sessions first")
@@ -378,7 +358,7 @@ class TikTokApi:
         Set the cookies for a session
 
         Args:
-            session (TikTokPatchrightSession): The session to set the cookies for.
+            session (TikTokPlaywrightSession): The session to set the cookies for.
             cookies (dict): The cookies to set for the session.
         """
         await session.context.add_cookies(cookies)
@@ -388,7 +368,7 @@ class TikTokApi:
         Get the cookies for a session
 
         Args:
-            session (TikTokPatchrightSession): The session to get the cookies for.
+            session (TikTokPlaywrightSession): The session to get the cookies for.
 
         Returns:
             dict: The cookies for the session.
@@ -422,25 +402,16 @@ class TikTokApi:
             attempts += 1
             try:
                 timeout_time = random.randint(5000, 20000)
-                await session.page.wait_for_function(
-                    "window.byted_acrawler !== undefined", timeout=timeout_time
-                )
+                await session.page.wait_for_function("window.byted_acrawler !== undefined", timeout=timeout_time)
                 break
             except TimeoutError as e:
                 if attempts == max_attempts:
-                    raise TimeoutError(
-                        f"Failed to load tiktok after {max_attempts} attempts, consider using a proxy"
-                    )
-
-                try_urls = [
-                    "https://www.tiktok.com/foryou",
-                    "https://www.tiktok.com",
-                    "https://www.tiktok.com/@tiktok",
-                    "https://www.tiktok.com/foryou",
-                ]
+                    raise TimeoutError(f"Failed to load tiktok after {max_attempts} attempts, consider using a proxy")
+                
+                try_urls = ["https://www.tiktok.com/foryou", "https://www.tiktok.com", "https://www.tiktok.com/@tiktok", "https://www.tiktok.com/foryou"]
 
                 await session.page.goto(random.choice(try_urls))
-
+        
         result = await session.page.evaluate(
             f'() => {{ return window.byted_acrawler.frontierSign("{url}") }}'
         )
@@ -529,10 +500,7 @@ class TikTokApi:
                 raise Exception("TikTokApi.run_fetch_script returned None")
 
             if result == "":
-                raise EmptyResponseException(
-                    result,
-                    "TikTok returned an empty response. They are detecting you're a bot, try some of these: headless=False, browser='webkit', consider using a proxy",
-                )
+                raise EmptyResponseException(result, "TikTok returned an empty response. They are detecting you're a bot, try some of these: headless=False, browser='webkit', consider using a proxy")
 
             try:
                 data = json.loads(result)

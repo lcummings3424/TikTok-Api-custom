@@ -1,16 +1,6 @@
-# TikTokApi
-
-The Unofficial TikTok API Wrapper In Python
+# Unofficial TikTok API in Python
 
 This is an unofficial api wrapper for TikTok.com in python. With this api you are able to call most trending and fetch specific user information as well as much more.
-
-## Important Information
-
-- This API is unofficial, use at your own risk
-- This API is not affiliated with TikTok in any way
-- If you abuse this API TikTok may block your IP address
-- Some features may be removed or changed without notice
-- This API is not guaranteed to be up to date 100% of the time
 
 [![DOI](https://zenodo.org/badge/188710490.svg)](https://zenodo.org/badge/latestdoi/188710490) [![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white&style=flat-square)](https://www.linkedin.com/in/davidteather/) [![Sponsor Me](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub)](https://github.com/sponsors/davidteather) [![GitHub release (latest by date)](https://img.shields.io/github/v/release/davidteather/TikTok-Api)](https://github.com/davidteather/TikTok-Api/releases) [![GitHub](https://img.shields.io/github/license/davidteather/TikTok-Api)](https://github.com/davidteather/TikTok-Api/blob/main/LICENSE) [![Downloads](https://pepy.tech/badge/tiktokapi)](https://pypi.org/project/TikTokApi/) ![](https://visitor-badge.laobi.icu/badge?page_id=davidteather.TikTok-Api) [![Support Server](https://img.shields.io/discord/783108952111579166.svg?color=7289da&logo=discord&style=flat-square)](https://discord.gg/yyPhbfma6f)
 
@@ -71,7 +61,7 @@ You can find the full documentation [here](https://davidteather.github.io/TikTok
 
 ## Getting Started
 
-To get started using this api follow the instructions below.
+To get started using this API follow the instructions below.
 
 **Note:** If you want to learn how to web scrape websites check my [free and open-source course for learning everything web scraping](https://github.com/davidteather/everything-web-scraping)
 
@@ -84,30 +74,39 @@ To get started using this api follow the instructions below.
 
 ### Installing
 
-If you run into an issue please check the [Closed Pull Requests](https://github.com/davidteather/TikTok-Api/pulls?q=is%3Apr+is%3Aclosed) and [Closed Issues](https://github.com/davidteather/TikTok-Api/issues?q=is%3Aissue+is%3Aclosed) before creating a new one. There may be an answer there.
+**Note:** Installation requires python3.9+
 
-```bash
-# Install TikTokApi
+If you run into an issue please check the closed issues on the github, although feel free to re-open a new issue if you find an issue that's been closed for a few months. The codebase can and does run into similar issues as it has before, because TikTok changes things up.
+
+```sh
 pip install TikTokApi
-# Install Chrome for Patchright
-patchright install chrome
+python -m playwright install
 ```
 
-### Docker
+If you would prefer a video walk through of setting up this package [YouTube video](https://www.youtube.com/watch?v=-uCt1x8kINQ) just for that. (is a version out of date, installation is the same though)
 
-```bash
-# Build the container
-docker build -t tiktokapi .
+If you want a quick video to listen for [TikTok Live](https://www.youtube.com/watch?v=307ijmA3_lc) events in python.
 
-# Run the container
-docker run -it tiktokapi
+#### Docker Installation
+
+Clone this repository onto a local machine (or just the Dockerfile since it installs TikTokApi from pip) then run the following commands.
+
+```sh
+docker pull mcr.microsoft.com/playwright:focal
+docker build . -t tiktokapi:latest
+docker run -v TikTokApi --rm tiktokapi:latest python3 your_script.py
 ```
+
+**Note** this assumes your script is named your_script.py and lives in the root of this directory.
 
 ### Common Issues
 
-Please don't open an issue if you're experiencing one of these...
+- **EmptyResponseException** - this means TikTok is blocking the request and detects you're a bot. This can be a problem with your setup or the library itself
+  - you may need a proxy to successfuly scrape TikTok, I've made a [web scraping lesson](https://github.com/davidteather/everything-web-scraping/tree/main/002-proxies) explaining the differences of "tiers" of proxies, I've personally had success with [webshare's residential proxies](https://www.webshare.io/?referral_code=3x5812idzzzp) (affiliate link), but you might have success on their free data center IPs or a cheaper competitor.
 
-- **Browser Has no Attribute** - make sure you ran `patchright install chrome`, if your error persists try the [patchright-python](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright-python) quickstart guide and diagnose issues from there.
+- **Browser Has no Attribute** - make sure you ran `python3 -m playwright install`, if your error persists try the [playwright-python](https://github.com/microsoft/playwright-python) quickstart guide and diagnose issues from there.
+
+- **API methods returning Coroutine** - many of the API's methods are async so make sure your program awaits them for proper functionality
 
 ## Quick Start Guide
 
